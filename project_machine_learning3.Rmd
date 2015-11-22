@@ -1,0 +1,125 @@
+---
+title: "Practical machine learning"
+author: "tgjoen"
+date: "November 20, 2015"
+output: html_document
+---
+##Introduction
+In this project we will use data from motionsensors (accelerometers) placed on dumbbels and on participants bodies (arms, shoulders, belts) to monitor movements during weight lifting excercises ("Unilateral Dumbbell Biceps Curl"). The participants have been observed during registration and their performance have been described by 5 categories: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). This variable is stored as "classe" in the training data set. 
+Using these data, our task is to use machine learning techniques to find a good model to predict the performance of a weight lifting exercise based on motion sensor data.  We will use the caret package in R to develop the models and compare their accuracy.  
+```{r echo=FALSE, warning=FALSE}
+library(knitr)
+library(ipred)
+library(corrplot)
+library(caret)
+library(ggplot2)
+library(rattle)
+library(xtable)
+library(data.table)
+library(RCurl)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+```
+The datafiles (training and test set) were downloaded from the course website and read into R dataframes. The data were cleaned by removing columns not relevant for the prediction (not describing movements) and columns with missing data: 
+
+```{r, echo=TRUE, warning=FALSE}
+#setwd("~/datasciencecoursera/macine_learning/project")
+train<-read.csv("pml-training.csv")
+test<-read.csv("pml-testing.csv")
+
+classe<-train$classe
+train <- train[, colSums(is.na(train)) == 0] 
+train<-train[,sapply(train,is.numeric)]
+train$classe<-classe
+train<-subset(train,select = -c(1:4))
+#Do the same for test
+test <- test[, colSums(is.na(train)) == 0] 
+test<-test[,sapply(test,is.numeric)]
+test <- test[, colSums(is.na(test)) == 0] 
+test<-subset(test,select = -c(1:4))
+dim(train)
+dim(test)
+```
+The training data are sliced into training (70%) and validation sets (30%). Correlation between variables can be visualized using "Corrplot".
+
+```{r, echo=FALSE, warning=FALSE}
+set.seed(1234)
+slicefactor<-createDataPartition(train$classe, p=0.7,list=FALSE)
+traindata<-train[slicefactor, ]
+valdata<-train[-slicefactor, ]
+```
+```{r, echo=TRUE, fig.width=12, fig.height=8}
+Plot <- cor(traindata[, -length(names(traindata))])
+corrplot(Plot, method="color")
+
+```
+
+The mode of excercise excecution was the predicted using various methods: Classification tree, Random forest and Bagging. These methods were then compared for accuracy
+
+###Classification tree
+This method split the variables into groups and evaluate homogeneity within each group. If this is low, the group will be split again into new groups
+
+```{r, warning=FALSE, echo=FALSE,cache=TRUE}
+set.seed(1234)
+system.time(modelfit1<-train(classe ~ ., data=traindata, method="rpart"))
+```
+```{r, echo=TRUE}
+fancyRpartPlot(modelfit1$finalModel, main = "Classification tree")
+#summary(modelfit1)
+
+#Estimate the performance of the model on the validation data
+pred1<-predict(modelfit1, valdata)
+cm1 = confusionMatrix(pred1, valdata$classe)
+cm1
+```
+
+
+###Random forest
+The accuracy of the tree model was not very high. Random forest uses boostrapping for making decision trees and create classification. This method corrects for overfitting on the training set.
+
+```{r, warning=FALSE,echo=FALSE,cache=TRUE}
+set.seed(1234)
+system.time(modelfit2<-train(classe ~ ., data=traindata, method="rf", trControl=trainControl(method="cv",5), ntree=250,allowParallel=T))
+
+```
+The number and importance of predictors can be plotted:
+
+```{r, echo=TRUE}
+plot(modelfit2,main="Random Forest: Accuracy vs number of predictors")
+#summary(modelfit2)
+pred2<-predict(modelfit2, valdata)
+cm2 = confusionMatrix(pred2, valdata$classe)
+plot(varImp(modelfit2), top=10)
+cm2
+```
+###Bagging
+Bagging is short for bootstrap aggregation and is a method that resample cases and recalculate predictions
+```{r, warning=FALSE, cache=TRUE, echo=FALSE}
+set.seed(1234)
+system.time(modelfit3<-train(classe ~ ., data=traindata, method="treebag",allowParallel=T))
+```
+```{r, echo=TRUE}
+#summary(modelfit3)
+pred3<-predict(modelfit3, valdata)
+cm3 = confusionMatrix(pred3, valdata$classe)
+varImp(modelfit3)
+plot(varImp(modelfit3), top = 10)
+cm3
+```
+###Prediction on test data
+Finally, the 3 models are used on the testdata to predict the performance :
+```{r, echo=TRUE}
+treemodel<-predict(modelfit1, newdata=test)
+summary(treemodel)
+rfmodel<-predict(modelfit2, newdata=test)
+summary(rfmodel)
+bagmodel<-predict(modelfit3, newdata=test)
+summary(bagmodel)
+treemodel
+rfmodel
+bagmodel
+```
+
+###The conclusion is that random forest give the best prediction and smallest out of sample error of these 3 methods. 
+
