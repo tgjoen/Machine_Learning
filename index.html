@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Machine learning by tgjoen</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Machine learning</h1>
+      <h2 class="project-tagline">Project assingment for Coursera course &quot;Practical machine learning&quot;</h2>
+      <a href="https://github.com/tgjoen/Machine_Learning" class="btn">View on GitHub</a>
+      <a href="https://github.com/tgjoen/Machine_Learning/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/tgjoen/Machine_Learning/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <p>&lt;!DOCTYPE html&gt;</p>
+
+<p></p>
+
+<p></p>
+
+<p>
+
+</p>
+
+<p></p>
+
+<p></p>
+
+<p></p>Practical machine learning
+
+
+
+<p>
+</p>
+
+
+
+
+
+
+
+code{white-space: pre;}
+
+<p></p>
+
+
+
+
+  pre:not([class]) {
+    background-color: white;
+  }
+
+
+
+
+<p></p>
+
+<p></p>
+
+
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img { 
+  max-width:100%; 
+  height: auto; 
+}
+
+
+<div>
+
+
+<div id="header">
+<h1>
+<a id="practical-machine-learning" class="anchor" href="#practical-machine-learning" aria-hidden="true"><span class="octicon octicon-link"></span></a>Practical machine learning</h1>
+<h4>
+<a id="tgjoen" class="anchor" href="#tgjoen" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>tgjoen</em>
+</h4>
+<h4>
+<a id="november-20-2015" class="anchor" href="#november-20-2015" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>November 20, 2015</em>
+</h4>
+</div>
+
+<div id="introduction">
+<h2>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h2>
+<p>In this project we will use data from motionsensors (accelerometers) placed on dumbbels and on participants bodies (arms, shoulders, belts) to monitor movements during weight lifting excercises (“Unilateral Dumbbell Biceps Curl”). The participants have been observed during registration and their performance have been described by 5 categories: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). This variable is stored as “classe” in the training data set. Using these data, our task is to use machine learning techniques to find a good model to predict the performance of a weight lifting exercise based on motion sensor data. We will use the caret package in R to develop the models and compare their accuracy.</p>
+<pre><code>## Loading required package: lattice
+## Loading required package: ggplot2
+## Rattle: A free graphical interface for data mining with R.
+## Version 4.0.0 Copyright (c) 2006-2015 Togaware Pty Ltd.
+## Type 'rattle()' to shake, rattle, and roll your data.
+## Loading required package: bitops
+## 
+## Attaching package: 'dplyr'
+## 
+## The following objects are masked from 'package:data.table':
+## 
+##     between, last
+## 
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+## 
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union</code></pre>
+<p>The datafiles (training and test set) were downloaded from the course website and read into R dataframes. The data were cleaned by removing columns not relevant for the prediction (not describing movements) and columns with missing data:</p>
+<pre><code>#setwd("~/datasciencecoursera/macine_learning/project")
+train&lt;-read.csv("pml-training.csv")
+test&lt;-read.csv("pml-testing.csv")
+
+classe&lt;-train$classe
+train &lt;- train[, colSums(is.na(train)) == 0] 
+train&lt;-train[,sapply(train,is.numeric)]
+train$classe&lt;-classe
+train&lt;-subset(train,select = -c(1:4))
+#Do the same for test
+test &lt;- test[, colSums(is.na(train)) == 0] 
+test&lt;-test[,sapply(test,is.numeric)]
+test &lt;- test[, colSums(is.na(test)) == 0] 
+test&lt;-subset(test,select = -c(1:4))
+dim(train)</code></pre>
+<pre><code>## [1] 19622    53</code></pre>
+<pre><code>dim(test)</code></pre>
+<pre><code>## [1] 20 53</code></pre>
+<p>The training data are sliced into training (70%) and validation sets (30%). Correlation between variables can be visualized using “Corrplot”.</p>
+<pre><code>Plot &lt;- cor(traindata[, -length(names(traindata))])
+corrplot(Plot, method="color")</code></pre>
+<p><img title alt width="1152"></p>
+<p>The mode of excercise excecution was the predicted using various methods: Classification tree, Random forest and Bagging. These methods were then compared for accuracy</p>
+<div id="classification-tree">
+<h3>
+<a id="classification-tree" class="anchor" href="#classification-tree" aria-hidden="true"><span class="octicon octicon-link"></span></a>Classification tree</h3>
+<p>This method split the variables into groups and evaluate homogeneity within each group. If this is low, the group will be split again into new groups</p>
+<pre><code>##    user  system elapsed 
+##   12.12    0.41   12.56</code></pre>
+<pre><code>fancyRpartPlot(modelfit1$finalModel, main = "Classification tree")</code></pre>
+<p><img title alt width="672"></p>
+<pre><code>#summary(modelfit1)
+
+#Estimate the performance of the model on the validation data
+pred1&lt;-predict(modelfit1, valdata)
+cm1 = confusionMatrix(pred1, valdata$classe)
+cm1</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1530  486  493  452  168
+##          B   35  379   31  164  145
+##          C  105  274  502  348  302
+##          D    0    0    0    0    0
+##          E    4    0    0    0  467
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.489           
+##                  95% CI : (0.4762, 0.5019)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.3311          
+##  Mcnemar's Test P-Value : NA              
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9140   0.3327   0.4893   0.0000  0.43161
+## Specificity            0.6203   0.9210   0.7882   1.0000  0.99917
+## Pos Pred Value         0.4890   0.5027   0.3279      NaN  0.99151
+## Neg Pred Value         0.9478   0.8519   0.8797   0.8362  0.88641
+## Prevalence             0.2845   0.1935   0.1743   0.1638  0.18386
+## Detection Rate         0.2600   0.0644   0.0853   0.0000  0.07935
+## Detection Prevalence   0.5317   0.1281   0.2602   0.0000  0.08003
+## Balanced Accuracy      0.7671   0.6269   0.6388   0.5000  0.71539</code></pre>
+</div>
+
+<div id="random-forest">
+<h3>
+<a id="random-forest" class="anchor" href="#random-forest" aria-hidden="true"><span class="octicon octicon-link"></span></a>Random forest</h3>
+<p>The accuracy of the tree model was not very high. Random forest uses boostrapping for making decision trees and create classification. This method corrects for overfitting on the training set.</p>
+<pre><code>## Loading required package: randomForest
+## randomForest 4.6-12
+## Type rfNews() to see new features/changes/bug fixes.
+## 
+## Attaching package: 'randomForest'
+## 
+## The following object is masked from 'package:dplyr':
+## 
+##     combine</code></pre>
+<pre><code>##    user  system elapsed 
+##  238.90    1.16  240.86</code></pre>
+<p>The number and importance of predictors can be plotted:</p>
+<pre><code>plot(modelfit2,main="Random Forest: Accuracy vs number of predictors")</code></pre>
+<p><img title alt width="672"></p>
+<pre><code>#summary(modelfit2)
+pred2&lt;-predict(modelfit2, valdata)
+cm2 = confusionMatrix(pred2, valdata$classe)
+plot(varImp(modelfit2), top=10)</code></pre>
+<p><img title alt width="672"></p>
+<pre><code>cm2</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1674    8    0    0    0
+##          B    0 1130    6    1    0
+##          C    0    1 1016    5    2
+##          D    0    0    4  956    3
+##          E    0    0    0    2 1077
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9946          
+##                  95% CI : (0.9923, 0.9963)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9931          
+##  Mcnemar's Test P-Value : NA              
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            1.0000   0.9921   0.9903   0.9917   0.9954
+## Specificity            0.9981   0.9985   0.9984   0.9986   0.9996
+## Pos Pred Value         0.9952   0.9938   0.9922   0.9927   0.9981
+## Neg Pred Value         1.0000   0.9981   0.9979   0.9984   0.9990
+## Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
+## Detection Rate         0.2845   0.1920   0.1726   0.1624   0.1830
+## Detection Prevalence   0.2858   0.1932   0.1740   0.1636   0.1833
+## Balanced Accuracy      0.9991   0.9953   0.9943   0.9951   0.9975</code></pre>
+</div>
+
+<div id="bagging">
+<h3>
+<a id="bagging" class="anchor" href="#bagging" aria-hidden="true"><span class="octicon octicon-link"></span></a>Bagging</h3>
+<p>Bagging is short for bootstrap aggregation and is a method that resample cases and recalculate predictions</p>
+<pre><code>## Loading required package: plyr
+## -------------------------------------------------------------------------
+## You have loaded plyr after dplyr - this is likely to cause problems.
+## If you need functions from both plyr and dplyr, please load plyr first, then dplyr:
+## library(plyr); library(dplyr)
+## -------------------------------------------------------------------------
+## 
+## Attaching package: 'plyr'
+## 
+## The following objects are masked from 'package:dplyr':
+## 
+##     arrange, count, desc, failwith, id, mutate, rename, summarise,
+##     summarize
+## 
+## Loading required package: e1071</code></pre>
+<pre><code>##    user  system elapsed 
+##  260.97    3.21  264.92</code></pre>
+<pre><code>#summary(modelfit3)
+pred3&lt;-predict(modelfit3, valdata)
+cm3 = confusionMatrix(pred3, valdata$classe)
+varImp(modelfit3)</code></pre>
+<pre><code>## treebag variable importance
+## 
+##   only 20 most important variables shown (out of 52)
+## 
+##                      Overall
+## roll_belt             100.00
+## yaw_belt               85.56
+## pitch_forearm          74.48
+## pitch_belt             73.23
+## magnet_dumbbell_y      65.06
+## magnet_dumbbell_z      61.35
+## roll_forearm           59.15
+## accel_dumbbell_y       51.32
+## roll_dumbbell          44.42
+## magnet_dumbbell_x      42.08
+## magnet_belt_y          38.35
+## accel_belt_z           37.13
+## magnet_belt_z          35.12
+## yaw_arm                28.47
+## accel_forearm_x        28.20
+## accel_dumbbell_z       26.15
+## accel_arm_x            23.97
+## magnet_forearm_z       23.96
+## total_accel_belt       22.97
+## total_accel_dumbbell   22.02</code></pre>
+<pre><code>plot(varImp(modelfit3), top = 10)</code></pre>
+<p><img title alt width="672"></p>
+<pre><code>cm3</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1672   15    1    1    0
+##          B    2 1114    4    4    0
+##          C    0    3 1016    6    6
+##          D    0    4    5  952    8
+##          E    0    3    0    1 1068
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9893          
+##                  95% CI : (0.9863, 0.9918)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9865          
+##  Mcnemar's Test P-Value : NA              
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9988   0.9781   0.9903   0.9876   0.9871
+## Specificity            0.9960   0.9979   0.9969   0.9965   0.9992
+## Pos Pred Value         0.9899   0.9911   0.9855   0.9825   0.9963
+## Neg Pred Value         0.9995   0.9947   0.9979   0.9976   0.9971
+## Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
+## Detection Rate         0.2841   0.1893   0.1726   0.1618   0.1815
+## Detection Prevalence   0.2870   0.1910   0.1752   0.1647   0.1822
+## Balanced Accuracy      0.9974   0.9880   0.9936   0.9920   0.9931</code></pre>
+</div>
+
+<div id="prediction-on-test-data">
+<h3>
+<a id="prediction-on-test-data" class="anchor" href="#prediction-on-test-data" aria-hidden="true"><span class="octicon octicon-link"></span></a>Prediction on test data</h3>
+<p>Finally, the 3 models are used on the testdata to predict the performance :</p>
+<pre><code>treemodel&lt;-predict(modelfit1, newdata=test)
+summary(treemodel)</code></pre>
+<pre><code>##  A  B  C  D  E 
+## 11  0  9  0  0</code></pre>
+<pre><code>rfmodel&lt;-predict(modelfit2, newdata=test)
+summary(rfmodel)</code></pre>
+<pre><code>## A B C D E 
+## 7 8 1 1 3</code></pre>
+<pre><code>bagmodel&lt;-predict(modelfit3, newdata=test)
+summary(bagmodel)</code></pre>
+<pre><code>## A B C D E 
+## 7 8 1 1 3</code></pre>
+<pre><code>treemodel</code></pre>
+<pre><code>##  [1] C A C A A C C A A A C C C A C A A A A C
+## Levels: A B C D E</code></pre>
+<pre><code>rfmodel</code></pre>
+<pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E</code></pre>
+<pre><code>bagmodel</code></pre>
+<pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E</code></pre>
+</div>
+
+<div id="the-conclusion-is-that-random-forest-give-the-best-prediction-and-smallest-out-of-sample-error-of-these-3-methods.">
+<h3>
+<a id="the-conclusion-is-that-random-forest-give-the-best-prediction-and-smallest-out-of-sample-error-of-these-3-methods" class="anchor" href="#the-conclusion-is-that-random-forest-give-the-best-prediction-and-smallest-out-of-sample-error-of-these-3-methods" aria-hidden="true"><span class="octicon octicon-link"></span></a>The conclusion is that random forest give the best prediction and smallest out of sample error of these 3 methods.</h3>
+</div>
+
+<p></p>
+</div>
+
+<p></p>
+</div>
+
+
+
+
+
+
+
+<p>
+</p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/tgjoen/Machine_Learning">Machine learning</a> is maintained by <a href="https://github.com/tgjoen">tgjoen</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
